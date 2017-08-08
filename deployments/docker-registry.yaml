@@ -1,0 +1,87 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: docker-registry
+  labels:
+    app: docker-registry
+spec:
+  type: LoadBalancer
+  selector:
+    app: docker-registry
+  loadBalancerIP: 169.60.9.204
+  ports:
+  - name: registry-le
+    port: 443
+    targetPort: 5000
+    protocol: TCP
+  - name: registry
+    port: 5000
+    protocol: TCP
+  - name: registry-debug
+    port: 5001
+    protocol: TCP
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: docker-registry-volume
+  annotations:
+    volume.beta.kubernetes.io/storage-class: "ibmc-file-silver"
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      storage: 40Gi
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: docker-registry
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: docker-registry
+    spec:
+      volumes:
+        - name: docker-registry-volume
+          persistentVolumeClaim:
+            claimName: docker-registry-volume
+      containers:
+      - name: docker-registry-volume
+        image: registry:2
+        volumeMounts:
+         - mountPath: /persist
+           name: docker-registry-volume
+        env:
+        - name: REGISTRY_STORAGE_FILESYSTEM_ROOTDIRECTORY
+          value: /persist/registry_data
+        - name: REGISTRY_HTTP_ADDR
+          value: :5000
+        - name: REGISTRY_HTTP_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: docker-registry
+              key: http-secret
+        - name: REGISTRY_HTTP_HOST
+          value: https://container-registry.dev.ibmesports.com
+        - name: REGISTRY_HTTP_TLS_LETSENCRYPT_CACHEFILE
+          value: /persist/letsencrypt_cache
+        - name: REGISTRY_HTTP_TLS_LETSENCRYPT_EMAIL
+          value: admin@container-registry.dev.ibmesports.com
+        - name: REGISTRY_HTTP_DEBUG_ADDR
+          value: 0.0.0.0:5001
+        - name: REGISTRY_HEALTH_STORAGEDRIVER_ENABLED
+          value: "false"
+        ports:
+        - containerPort: 443
+          name: registry-le
+          protocol: TCP
+        - containerPort: 5000
+          name: registry
+          protocol: TCP
+        - containerPort: 5001
+          name: registry-debug
+          protocol: TCP
