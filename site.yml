@@ -1,0 +1,12 @@
+---
+- name: common role for all hosts
+  hosts: all
+  roles:
+    - role: common
+      tags: ['common']
+
+- name: postgres host
+  hosts: postgres
+  roles:
+    - role: primary
+      tags: ['postgres']

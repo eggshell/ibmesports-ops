@@ -1,0 +1,62 @@
+---
+- name: Ensure base packages
+  apt:
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - libssl-dev
+    - libssl-doc
+    - openssh
+    - openssl
+    - ufw
+    - vim
+
+- name: Ensure sshd config
+  template:
+    src: etc/ssh/sshd_config
+    dest: /etc/ssh/sshd_config
+    mode: 0644
+
+- name: Restart sshd
+  systemd:
+    name: sshd
+    state: restarted
+
+- name: Ensure ufw defaults
+  ufw:
+    direction: "{{ item.direction }}"
+    policy: "{{ item.policy }}"
+  with_items:
+    - { direction: "incoming", policy: "deny" }
+    - { direction: "outgoing", policy: "allow" }
+  notify:
+    - restart ufw
+
+- name: Ensure ufw rules
+  ufw:
+    rule: "{{ item.rule }}"
+    port: "{{ item.port }}"
+    proto: "{{ item.proto }}"
+    src: "{{ item.src }}"
+  with_items:
+    - { rule: "allow", port: "{{ ssh_port | default('22') }}", proto: "tcp", src: "*" }
+    - { rule: "allow", port: "{{ db_port | default('5432') }}", proto: "tcp", src: "172.30.0.0/16" }
+  notify:
+    - restart ufw
+
+- name: Enable ufw logging
+  ufw:
+    logging: on
+  notify:
+    - restart ufw
+
+- name: Enable ufw
+  ufw:
+    state: enabled
+
+- name: Install pip packages
+  pip:
+    name: "{{ item }}"
+    state: present
+  with_items:
+    - asyncpg
