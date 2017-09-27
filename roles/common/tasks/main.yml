@@ -6,10 +6,17 @@
   with_items:
     - libssl-dev
     - libssl-doc
-    - openssh
+    - openssh-client
+    - openssh-server
     - openssl
+    - python3
+    - python3-setuptools
+    - python3-pip
     - ufw
     - vim
+
+- name: Ensure default editor
+  command: update-alternatives --set editor /usr/bin/vim.basic
 
 - name: Ensure sshd config
   template:
@@ -18,17 +25,24 @@
     mode: 0644
 
 - name: Restart sshd
-  systemd:
+  service:
     name: sshd
     state: restarted
+
+- name: Ensure ssh access
+  ufw:
+    name: OpenSSH
+    rule: allow
+  notify:
+    - restart ufw
 
 - name: Ensure ufw defaults
   ufw:
     direction: "{{ item.direction }}"
     policy: "{{ item.policy }}"
   with_items:
-    - { direction: "incoming", policy: "deny" }
     - { direction: "outgoing", policy: "allow" }
+    - { direction: "incoming", policy: "deny" }
   notify:
     - restart ufw
 
@@ -39,7 +53,6 @@
     proto: "{{ item.proto }}"
     src: "{{ item.src }}"
   with_items:
-    - { rule: "allow", port: "{{ ssh_port | default('22') }}", proto: "tcp", src: "*" }
     - { rule: "allow", port: "{{ db_port | default('5432') }}", proto: "tcp", src: "172.30.0.0/16" }
   notify:
     - restart ufw
@@ -54,7 +67,7 @@
   ufw:
     state: enabled
 
-- name: Install pip packages
+- name: Ensure pip packages
   pip:
     name: "{{ item }}"
     state: present

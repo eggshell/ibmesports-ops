@@ -8,13 +8,6 @@
     - postgresql-contrib
     - libpq-dev
 
-- name: Ensure postgresql homedir
-  file:
-    path: /home/postgres
-    owner: postgres
-    group: postgres
-    mode: 0755
-
 - name: Ensure postgresql service is running
   service:
     name: postgresql
@@ -28,7 +21,6 @@
     lc_collate: 'en_US.UTF-8'
     lc_ctype: 'en_US.UTF-8'
     state: present
-  notify: restart postgresql
 
 - name: Ensure database user
   sudo_user: postgres
@@ -37,7 +29,6 @@
     name: "{{ db_user }}"
     password: "{{ db_password }}"
     state: present
-  notify: restart postgresql
 
 - name: Ensure database role has CREATEDB
   sudo_user: postgres
@@ -45,7 +36,6 @@
     name: "{{ db_user }}"
     role_attr_flags: CREATEDB
     state: present
-  notify: restart postgresql
 
 - name: Ensure postgresql config files
   file:
@@ -57,34 +47,35 @@
   with_items:
     - postgresql.conf
     - pg_hba.conf
+  notify: restart postgresql
 
 - name: Ensure backups dir
   file:
-    path: /home/postgres/backups
+    path: /var/lib/postgres/backups
     owner: postgres
     group: postgres
     mode: 0755
 
 - name: Ensure pg_backup.config
   template:
-    src: home/postgres/backups/pg_backup.config
-    dest: /home/postgres/backups/pg_backup.config
+    src: var/lib/postgres/pg_backup.config
+    dest: /var/lib/postgres/backups/pg_backup.config
     owner: postgres
     group: postgres
     mode: 0755
 
 - name: Ensure pg_backup.sh
   template:
-    src: home/postgres/backups/pg_backup.sh
-    dest: /home/postgres/backups/pg_backup.sh
+    src: var/lib/postgres/backups/pg_backup.sh
+    dest: /var/lib/postgres/backups/pg_backup.sh
     owner: postgres
     group: postgres
     mode: 0755
 
 - name: Ensure backup cron job
   cron:
-    - name: "backup postgres db"
-      minute: "0"
-      hour: "3"
-      special_time: daily
-      job: "sudo -u postgres /home/postgres/backups/pg_backup.sh -c /home/postgres/backups/pg_config.sh"
+    name: "backup postgres db"
+    minute: "0"
+    hour: "3"
+    special_time: daily
+    job: "sudo -u postgres /home/postgres/backups/pg_backup.sh -c /home/postgres/backups/pg_config.sh"

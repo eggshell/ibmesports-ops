@@ -8,5 +8,5 @@
 - name: postgres host
   hosts: postgres
   roles:
-    - role: primary
+    - role: postgres
       tags: ['postgres']
